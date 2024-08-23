@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Formulário de Pedido de Corrida</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        form {
+            max-width: 600px;
+            margin: 20px auto;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            background-color: #f9f9f9;
+            position: relative;
+        }
+        label {
+            display: block;
+            margin-bottom: 8px;
+        }
+        input[type="text"],
+        input[type="date"],
+        input[type="time"] {
+            width: calc(100% - 16px);
+            padding: 8px;
+            margin-bottom: 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .suggestions {
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            background: #fff;
+            position: absolute;
+            z-index: 1000;
+            max-height: 150px;
+            overflow-y: auto;
+            width: calc(100% - 32px);
+            left: 16px;
+            top: 36px;
+        }
+        .suggestions div {
+            padding: 8px;
+            cursor: pointer;
+        }
+        .suggestions div:hover {
+            background-color: #f0f0f0;
+        }
+        #map {
+            height: 400px;
+            width: 100%;
+            margin-top: 20px;
+        }
+        .hidden {
+            display: none;
+        }
+        .active {
+            color: green;
+        }
+        .inactive {
+            color: black;
+        }
+        button {
+            display: block;
+            width: 100%;
+            padding: 10px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        @media (max-width: 600px) {
+            form {
+                padding: 10px;
+            }
+            button {
+                font-size: 14px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <h1>Formulário de Pedido de Corrida</h1>
+    <form id="formPedido">
+        <label for="passageiro">Nome do Passageiro:</label>
+        <input type="text" id="passageiro" required>
+        
+        <label for="origem">Origem:</label>
+        <input type="text" id="origem" required>
+        <div id="origemSuggestions" class="suggestions hidden"></div>
+        
+        <label for="numeroOrigem">Número da Residência:</label>
+        <input type="text" id="numeroOrigem" placeholder="Número da residência" required>
+        
+        <label for="destino">Destino:</label>
+        <input type="text" id="destino" required>
+        <div id="destinoSuggestions" class="suggestions hidden"></div>
+        
+        <label for="numeroDestino">Número da Residência:</label>
+        <input type="text" id="numeroDestino" placeholder="Número da residência" required>
+        
+        <label>Tipo de Corrida:</label>
+        <button type="button" id="corridaAgoraBtn" class="inactive">Corrida Agora</button>
+        <button type="button" id="corridaAgendadaBtn" class="inactive">Corrida Agendada</button>
+        
+        <div id="dataHoraFields" class="hidden">
+            <label for="data">Data:</label>
+            <input type="date" id="data">
+            <label for="hora">Hora:</label>
+            <input type="time" id="hora">
+        </div>
+        
+        <div id="infoDataHora" class="hidden"></div>
+        
+        <button type="submit">Pedir Corrida</button>
+    </form>
+    <div id="map"></div>
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.js"></script>
+    <script src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const formPedido = document.getElementById('formPedido');
+            const corridaAgoraBtn = document.getElementById('corridaAgoraBtn');
+            const corridaAgendadaBtn = document.getElementById('corridaAgendadaBtn');
+            const dataHoraFields = document.getElementById('dataHoraFields');
+            const infoDataHora = document.getElementById('infoDataHora');
+            const origemInput = document.getElementById('origem');
+            const numeroOrigemInput = document.getElementById('numeroOrigem');
+            const destinoInput = document.getElementById('destino');
+            const numeroDestinoInput = document.getElementById('numeroDestino');
+            const origemSuggestions = document.getElementById('origemSuggestions');
+            const destinoSuggestions = document.getElementById('destinoSuggestions');
+            let map, routingControl;
+
+            const updateMap = () => {
+                const origem = `${origemInput.value.trim()} ${numeroOrigemInput.value.trim()}`;
+                const destino = `${destinoInput.value.trim()} ${numeroDestinoInput.value.trim()}`;
+
+                if (origem && destino) {
+                    if (routingControl) {
+                        map.removeControl(routingControl);
+                    }
+
+                    routingControl = L.Routing.control({
+                        waypoints: [
+                            L.latLng(origem.lat, origem.lng),
+                            L.latLng(destino.lat, destino.lng)
+                        ],
+                        router: L.Routing.mapbox('YOUR_MAPBOX_ACCESS_TOKEN'),
+                        geocoder: L.Control.Geocoder.nominatim(),
+                        routeWhileDragging: true
+                    }).addTo(map);
+                }
+            };
+
+            const fetchSuggestions = async (inputElement, suggestionsElement) => {
+                const query = inputElement.value.trim();
+                if (query.length < 3) {
+                    suggestionsElement.innerHTML = '';
+                    suggestionsElement.classList.add('hidden');
+                    return;
+                }
+                
+                const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}`);
+                const data = await response.json();
+                
+                suggestionsElement.innerHTML = data.map(item => `
+                    <div data-lat="${item.lat}" data-lng="${item.lon}">
+                        ${item.display_name.split(',')[0]}
+                    </div>
+                `).join('');
+                
+                suggestionsElement.classList.remove('hidden');
+            };
+
+            const selectSuggestion = (inputElement, suggestionsElement, lat, lng, address) => {
+                inputElement.value = address;
+                suggestionsElement.innerHTML = '';
+                suggestionsElement.classList.add('hidden');
+                updateMap();
+            };
+
+            const debouncedFetchSuggestions = debounce((inputElement, suggestionsElement) => {
+                fetchSuggestions(inputElement, suggestionsElement);
+            }, 300);
+
+            const debouncedUpdateMap = debounce(updateMap, 300);
+
+            origemInput.addEventListener('input', () => {
+                debouncedFetchSuggestions(origemInput, origemSuggestions);
+            });
+
+            destinoInput.addEventListener('input', () => {
+                debouncedFetchSuggestions(destinoInput, destinoSuggestions);
+            });
+
+            origemSuggestions.addEventListener('click', (e) => {
+                if (e.target.dataset.lat && e.target.dataset.lng) {
+                    selectSuggestion(origemInput, origemSuggestions, e.target.dataset.lat, e.target.dataset.lng, e.target.innerText);
+                }
+            });
+
+            destinoSuggestions.addEventListener('click', (e) => {
+                if (e.target.dataset.lat && e.target.dataset.lng) {
+                    selectSuggestion(destinoInput, destinoSuggestions, e.target.dataset.lat, e.target.dataset.lng, e.target.innerText);
+                }
+            });
+
+            corridaAgoraBtn.addEventListener('click', () => {
+                corridaAgoraBtn.classList.add('active');
+                corridaAgendadaBtn.classList.remove('active');
+                dataHoraFields.classList.add('hidden');
+                const hoje = new Date();
+                const data = hoje.toISOString().split('T')[0];
+                const hora = hoje.toTimeString().split(' ')[0].substring(0, 5);
+                infoDataHora.textContent = `Data e Hora Atual: ${data} ${hora}`;
+                infoDataHora.classList.remove('hidden');
+            });
+
+            corridaAgendadaBtn.addEventListener('click', () => {
+                corridaAgendadaBtn.classList.add('active');
+                corridaAgoraBtn.classList.remove('active');
+                dataHoraFields.classList.remove('hidden');
+                infoDataHora.classList.add('hidden');
+            });
+
+            formPedido.addEventListener('submit', (e) => {
+                e.preventDefault();
+
+                const passageiro = document.getElementById('passageiro').value.trim();
+                const origem = `${document.getElementById('origem').value.trim()} ${document.getElementById('numeroOrigem').value.trim()}`;
+                const destino = `${document.getElementById('destino').value.trim()} ${document.getElementById('numeroDestino').value.trim()}`;
+                const tipoCorrida = corridaAgoraBtn.classList.contains('active') ? 'Agora' : 'Agendada';
+                const data = corridaAgoraBtn.classList.contains('active') ? new Date().toISOString().split('T')[0] : document.getElementById('data').value;
+                const hora = corridaAgoraBtn.classList.contains('active') ? new Date().toTimeString().split(' ')[0].substring(0, 5) : document.getElementById('hora').value;
+
+                if (!passageiro || !origem || !destino || !tipoCorrida) {
+                    alert('Por favor, preencha todos os campos obrigatórios.');
+                    return;
+                }
+
+                if (corridaAgendadaBtn.classList.contains('active') && (!data || !hora)) {
+                    alert('Por favor, selecione a data e a hora para a corrida agendada.');
+                    return;
+                }
+
+                const motoristaNome = new URLSearchParams(window.location.search).get('motorista');
+                const telefoneMotorista = new URLSearchParams(window.location.search).get('telefone');
+                const mensagem = `Olá ${motoristaNome},\n\nNovo pedido de corrida:\n\nPassageiro: ${passageiro}\nOrigem: ${origem}\nDestino: ${destino}\nTipo de Corrida: ${tipoCorrida}\nData: ${data}\nHora: ${hora}\n\n`;
+                const linkWhatsApp = `https://api.whatsapp.com/send?phone=${telefoneMotorista}&text=${encodeURIComponent(mensagem)}`;
+                window.open(linkWhatsApp, '_blank');
+            });
+
+            // Inicializa o mapa
+            map = L.map('map').setView([51.505, -0.09], 13);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            }).addTo(map);
+        });
+
+        function debounce(func, wait) {
+            let timeout;
+            return function(...args) {
+                clearTimeout(timeout);
+                timeout = setTimeout(() => func.apply(this, args), wait);
+            };
+        }
+    </script>
+</body>
+</html>
