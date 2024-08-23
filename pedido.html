@@ -145,13 +145,15 @@
             let map, routingControl;
             let origemLatLng = null;
             let destinoLatLng = null;
+            const urlParams = new URLSearchParams(window.location.search);
+            const cidadeMotorista = urlParams.get('cidade');
 
             const updateMap = () => {
                 const origem = enderecoOrigemInput.value.trim();
                 const destino = enderecoDestinoInput.value.trim();
 
                 if (origem) {
-                    fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(origem)}`)
+                    fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(origem)}${cidadeMotorista ? `, ${cidadeMotorista}` : ''}`)
                         .then(response => response.json())
                         .then(data => {
                             origemLatLng = [data[0].lat, data[0].lon];
@@ -170,7 +172,7 @@
                 }
 
                 if (destino) {
-                    fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(destino)}`)
+                    fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(destino)}${cidadeMotorista ? `, ${cidadeMotorista}` : ''}`)
                         .then(response => response.json())
                         .then(data => {
                             destinoLatLng = [data[0].lat, data[0].lon];
@@ -252,8 +254,8 @@
                     return;
                 }
 
-                const motoristaNome = new URLSearchParams(window.location.search).get('motorista');
-                const telefoneMotorista = new URLSearchParams(window.location.search).get('telefone');
+                const motoristaNome = urlParams.get('motorista');
+                const telefoneMotorista = urlParams.get('telefone');
                 const mensagem = `Olá ${motoristaNome},\n\nNovo pedido de corrida:\n\nPassageiro: ${passageiro}\nOrigem: ${origem}\nDestino: ${destino}\nTipo de Corrida: ${tipoCorrida}\nData: ${data}\nHora: ${hora}\n\n`;
                 const linkWhatsApp = `https://api.whatsapp.com/send?phone=${telefoneMotorista}&text=${encodeURIComponent(mensagem)}`;
                 window.open(linkWhatsApp, '_blank');
