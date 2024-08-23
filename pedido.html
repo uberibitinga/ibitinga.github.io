@@ -90,17 +90,11 @@
         <label for="passageiro">Nome do Passageiro:</label>
         <input type="text" id="passageiro" required>
         
-        <label for="origem">Origem:</label>
-        <input type="text" id="origem" required>
+        <label for="enderecoOrigem">Origem (Rua e Número):</label>
+        <input type="text" id="enderecoOrigem" required>
         
-        <label for="numeroOrigem">Número da Residência:</label>
-        <input type="text" id="numeroOrigem" placeholder="Número da residência" required>
-        
-        <label for="destino">Destino:</label>
-        <input type="text" id="destino" required>
-        
-        <label for="numeroDestino">Número da Residência:</label>
-        <input type="text" id="numeroDestino" placeholder="Número da residência" required>
+        <label for="enderecoDestino">Destino (Rua e Número):</label>
+        <input type="text" id="enderecoDestino" required>
         
         <label>Tipo de Corrida:</label>
         <button type="button" id="corridaAgoraBtn" class="btn-type inactive">Corrida Agora</button>
@@ -128,60 +122,63 @@
             const corridaAgendadaBtn = document.getElementById('corridaAgendadaBtn');
             const dataHoraFields = document.getElementById('dataHoraFields');
             const infoDataHora = document.getElementById('infoDataHora');
-            const origemInput = document.getElementById('origem');
-            const numeroOrigemInput = document.getElementById('numeroOrigem');
-            const destinoInput = document.getElementById('destino');
-            const numeroDestinoInput = document.getElementById('numeroDestino');
+            const enderecoOrigemInput = document.getElementById('enderecoOrigem');
+            const enderecoDestinoInput = document.getElementById('enderecoDestino');
             let map, routingControl;
+            let origemLatLng = null;
+            let destinoLatLng = null;
 
             const updateMap = () => {
-                const origem = `${origemInput.value.trim()} ${numeroOrigemInput.value.trim()}`;
-                const destino = `${destinoInput.value.trim()} ${numeroDestinoInput.value.trim()}`;
+                const origem = enderecoOrigemInput.value.trim();
+                const destino = enderecoDestinoInput.value.trim();
 
-                if (origem && destino) {
-                    if (routingControl) {
-                        map.removeControl(routingControl);
-                    }
-
-                    // Utilize Nominatim for geocoding
+                if (origem) {
                     fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(origem)}`)
                         .then(response => response.json())
                         .then(data => {
-                            const origemLatLng = [data[0].lat, data[0].lon];
+                            origemLatLng = [data[0].lat, data[0].lon];
+                            L.marker(origemLatLng).addTo(map).bindPopup('Origem').openPopup();
+                            if (destinoLatLng) {
+                                traceRoute();
+                            }
+                        });
+                }
 
-                            fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(destino)}`)
-                                .then(response => response.json())
-                                .then(data => {
-                                    const destinoLatLng = [data[0].lat, data[0].lon];
-                                    
-                                    routingControl = L.Routing.control({
-                                        waypoints: [
-                                            L.latLng(origemLatLng[0], origemLatLng[1]),
-                                            L.latLng(destinoLatLng[0], destinoLatLng[1])
-                                        ],
-                                        router: L.Routing.mapbox('YOUR_MAPBOX_ACCESS_TOKEN'),
-                                        geocoder: L.Control.Geocoder.nominatim(),
-                                        routeWhileDragging: true
-                                    }).addTo(map);
-                                    map.fitBounds(routingControl.getBounds());
-                                });
+                if (destino) {
+                    fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(destino)}`)
+                        .then(response => response.json())
+                        .then(data => {
+                            destinoLatLng = [data[0].lat, data[0].lon];
+                            L.marker(destinoLatLng).addTo(map).bindPopup('Destino').openPopup();
+                            if (origemLatLng) {
+                                traceRoute();
+                            }
                         });
                 }
             };
 
-            origemInput.addEventListener('input', () => {
+            const traceRoute = () => {
+                if (routingControl) {
+                    map.removeControl(routingControl);
+                }
+                
+                routingControl = L.Routing.control({
+                    waypoints: [
+                        L.latLng(origemLatLng[0], origemLatLng[1]),
+                        L.latLng(destinoLatLng[0], destinoLatLng[1])
+                    ],
+                    router: L.Routing.osrmv1({ language: 'pt-BR' }),
+                    geocoder: L.Control.Geocoder.nominatim(),
+                    routeWhileDragging: true
+                }).addTo(map);
+                map.fitBounds(routingControl.getBounds());
+            };
+
+            enderecoOrigemInput.addEventListener('input', () => {
                 updateMap();
             });
 
-            destinoInput.addEventListener('input', () => {
-                updateMap();
-            });
-
-            numeroOrigemInput.addEventListener('input', () => {
-                updateMap();
-            });
-
-            numeroDestinoInput.addEventListener('input', () => {
+            enderecoDestinoInput.addEventListener('input', () => {
                 updateMap();
             });
 
@@ -207,8 +204,8 @@
                 e.preventDefault();
 
                 const passageiro = document.getElementById('passageiro').value.trim();
-                const origem = `${document.getElementById('origem').value.trim()} ${document.getElementById('numeroOrigem').value.trim()}`;
-                const destino = `${document.getElementById('destino').value.trim()} ${document.getElementById('numeroDestino').value.trim()}`;
+                const origem = enderecoOrigemInput.value.trim();
+                const destino = enderecoDestinoInput.value.trim();
                 const tipoCorrida = corridaAgoraBtn.classList.contains('active') ? 'Agora' : 'Agendada';
                 const data = corridaAgoraBtn.classList.contains('active') ? new Date().toISOString().split('T')[0] : document.getElementById('data').value;
                 const hora = corridaAgoraBtn.classList.contains('active') ? new Date().toTimeString().split(' ')[0].substring(0, 5) : document.getElementById('hora').value;
@@ -231,7 +228,7 @@
             });
 
             // Inicializa o mapa
-            map = L.map('map').setView([51.505, -0.09], 13);
+            map = L.map('map').setView([-15.7801, -47.9292], 5); // Centro do Brasil
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                 attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
             }).addTo(map);
