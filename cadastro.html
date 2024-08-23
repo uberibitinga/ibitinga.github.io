@@ -3,33 +3,54 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cadastro do Motorista</title>
+    <title>Formulário de Pedido de Corrida</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css">
     <style>
         body {
             font-family: Arial, sans-serif;
             margin: 0;
             padding: 0;
             box-sizing: border-box;
-            text-align: center;
         }
         form {
-            max-width: 500px;
+            max-width: 600px;
             margin: 20px auto;
             padding: 20px;
             border: 1px solid #ddd;
             border-radius: 8px;
             background-color: #f9f9f9;
+            position: relative;
         }
         label {
             display: block;
             margin-bottom: 8px;
         }
-        input[type="text"] {
-            width: calc(100% - 16px);
-            padding: 8px;
+        .input-wrapper {
+            position: relative;
             margin-bottom: 12px;
+        }
+        .input-wrapper input {
+            width: calc(100% - 80px);
+            padding: 8px;
             border: 1px solid #ddd;
             border-radius: 4px;
+        }
+        .input-wrapper .hint {
+            position: absolute;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 14px;
+            color: #666;
+        }
+        .hidden {
+            display: none;
+        }
+        .active {
+            color: green;
+        }
+        .inactive {
+            color: black;
         }
         button {
             display: block;
@@ -43,62 +64,208 @@
             cursor: pointer;
             margin-top: 10px;
         }
-        button:hover {
-            background-color: #45a049;
+        .btn-type {
+            display: inline-block;
+            padding: 10px;
+            background-color: #ddd;
+            color: black;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 5px;
         }
-        #linkContainer {
+        .btn-type.active {
+            background-color: #4CAF50;
+            color: white;
+        }
+        #map {
+            height: 400px;
+            width: 100%;
             margin-top: 20px;
         }
-        #linkContainer input {
-            width: calc(100% - 22px);
-            display: inline-block;
-        }
-        #linkContainer button {
-            width: auto;
-            display: inline-block;
+        @media (max-width: 600px) {
+            form {
+                padding: 10px;
+            }
+            button {
+                font-size: 14px;
+            }
         }
     </style>
 </head>
 <body>
-    <h1>Cadastro do Motorista</h1>
-    <form id="formCadastro">
-        <label for="nome">Nome:</label>
-        <input type="text" id="nome" required>
-        
-        <label for="telefone">Telefone:</label>
-        <input type="text" id="telefone" required>
-        
-        <button type="submit">Gerar Link de Cadastro</button>
-        
-        <div id="linkContainer"></div>
+    <h1>Formulário de Pedido de Corrida</h1>
+    <form id="formPedido">
+        <label for="passageiro">Nome do Passageiro:</label>
+        <div class="input-wrapper">
+            <input type="text" id="passageiro" required>
+            <span class="hint">Nome completo</span>
+        </div>
+
+        <label for="enderecoOrigem">Origem (Rua e Número):</label>
+        <div class="input-wrapper">
+            <input type="text" id="enderecoOrigem" required>
+            <span class="hint">Rua e número</span>
+        </div>
+
+        <label for="enderecoDestino">Destino (Rua e Número):</label>
+        <div class="input-wrapper">
+            <input type="text" id="enderecoDestino" required>
+            <span class="hint">Rua e número</span>
+        </div>
+
+        <label>Tipo de Corrida:</label>
+        <button type="button" id="corridaAgoraBtn" class="btn-type inactive">Corrida Agora</button>
+        <button type="button" id="corridaAgendadaBtn" class="btn-type inactive">Corrida Agendada</button>
+
+        <div id="dataHoraFields" class="hidden">
+            <label for="data">Data:</label>
+            <input type="date" id="data">
+            <label for="hora">Hora:</label>
+            <input type="time" id="hora">
+        </div>
+
+        <div id="infoDataHora" class="hidden"></div>
+
+        <button type="submit">Pedir Corrida</button>
     </form>
+    <div id="map"></div>
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.js"></script>
+    <script src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js"></script>
     <script>
-        document.getElementById('formCadastro').addEventListener('submit', (event) => {
-            event.preventDefault();
-            
-            const nome = document.getElementById('nome').value.trim();
-            const telefone = document.getElementById('telefone').value.trim();
-            
-            if (!nome || !telefone) {
-                alert('Por favor, preencha todos os campos.');
-                return;
-            }
-            
-            const motoristaLink = `pedido.html?motorista=${encodeURIComponent(nome)}&telefone=${encodeURIComponent(telefone)}`;
-            const fullLink = `${window.location.origin}/${motoristaLink}`;
-            document.getElementById('linkContainer').innerHTML = `
-                <p>Seu link personalizado:</p>
-                <input type="text" value="${fullLink}" readonly>
-                <button onclick="copyLink()">Copiar Link</button>
-                <script>
-                    function copyLink() {
-                        const linkInput = document.querySelector('#linkContainer input');
-                        linkInput.select();
-                        document.execCommand('copy');
-                        alert('Link copiado para a área de transferência!');
-                    }
-                <\/script>
-            `;
+        document.addEventListener('DOMContentLoaded', () => {
+            const formPedido = document.getElementById('formPedido');
+            const corridaAgoraBtn = document.getElementById('corridaAgoraBtn');
+            const corridaAgendadaBtn = document.getElementById('corridaAgendadaBtn');
+            const dataHoraFields = document.getElementById('dataHoraFields');
+            const infoDataHora = document.getElementById('infoDataHora');
+            const enderecoOrigemInput = document.getElementById('enderecoOrigem');
+            const enderecoDestinoInput = document.getElementById('enderecoDestino');
+            let map, routingControl;
+            let origemLatLng = null;
+            let destinoLatLng = null;
+            const urlParams = new URLSearchParams(window.location.search);
+            const cidadeMotorista = urlParams.get('cidade');
+
+            const updateMap = () => {
+                const origem = enderecoOrigemInput.value.trim();
+                const destino = enderecoDestinoInput.value.trim();
+
+                if (origem) {
+                    fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(origem)}${cidadeMotorista ? `, ${cidadeMotorista}` : ''}`)
+                        .then(response => response.json())
+                        .then(data => {
+                            origemLatLng = [data[0].lat, data[0].lon];
+                            if (map) {
+                                map.eachLayer(layer => {
+                                    if (layer instanceof L.Marker && layer.getPopup().getContent() === 'Origem') {
+                                        map.removeLayer(layer);
+                                    }
+                                });
+                                L.marker(origemLatLng).addTo(map).bindPopup('Origem').openPopup();
+                            }
+                            if (destinoLatLng) {
+                                traceRoute();
+                            }
+                        });
+                }
+
+                if (destino) {
+                    fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(destino)}${cidadeMotorista ? `, ${cidadeMotorista}` : ''}`)
+                        .then(response => response.json())
+                        .then(data => {
+                            destinoLatLng = [data[0].lat, data[0].lon];
+                            if (map) {
+                                map.eachLayer(layer => {
+                                    if (layer instanceof L.Marker && layer.getPopup().getContent() === 'Destino') {
+                                        map.removeLayer(layer);
+                                    }
+                                });
+                                L.marker(destinoLatLng).addTo(map).bindPopup('Destino').openPopup();
+                            }
+                            if (origemLatLng) {
+                                traceRoute();
+                            }
+                        });
+                }
+            };
+
+            const traceRoute = () => {
+                if (routingControl) {
+                    map.removeControl(routingControl);
+                }
+
+                routingControl = L.Routing.control({
+                    waypoints: [
+                        L.latLng(origemLatLng[0], origemLatLng[1]),
+                        L.latLng(destinoLatLng[0], destinoLatLng[1])
+                    ],
+                    router: L.Routing.osrmv1({ language: 'pt-BR' }),
+                    geocoder: L.Control.Geocoder.nominatim(),
+                    routeWhileDragging: true
+                }).addTo(map);
+                map.fitBounds(routingControl.getBounds());
+            };
+
+            enderecoOrigemInput.addEventListener('input', () => {
+                updateMap();
+            });
+
+            enderecoDestinoInput.addEventListener('input', () => {
+                updateMap();
+            });
+
+            corridaAgoraBtn.addEventListener('click', () => {
+                corridaAgoraBtn.classList.add('active');
+                corridaAgendadaBtn.classList.remove('active');
+                dataHoraFields.classList.add('hidden');
+                const hoje = new Date();
+                const data = hoje.toISOString().split('T')[0];
+                const hora = hoje.toTimeString().split(' ')[0].substring(0, 5);
+                infoDataHora.textContent = `Pedindo Corrida Para Agora ${data} - ${hora}`;
+                infoDataHora.classList.remove('hidden');
+            });
+
+            corridaAgendadaBtn.addEventListener('click', () => {
+                corridaAgendadaBtn.classList.add('active');
+                corridaAgoraBtn.classList.remove('active');
+                dataHoraFields.classList.remove('hidden');
+                infoDataHora.classList.add('hidden');
+            });
+
+            formPedido.addEventListener('submit', (e) => {
+                e.preventDefault();
+
+                const passageiro = document.getElementById('passageiro').value.trim();
+                const origem = enderecoOrigemInput.value.trim();
+                const destino = enderecoDestinoInput.value.trim();
+                const tipoCorrida = corridaAgoraBtn.classList.contains('active') ? 'Agora' : 'Agendada';
+                const data = corridaAgoraBtn.classList.contains('active') ? new Date().toISOString().split('T')[0] : document.getElementById('data').value;
+                const hora = corridaAgoraBtn.classList.contains('active') ? new Date().toTimeString().split(' ')[0].substring(0, 5) : document.getElementById('hora').value;
+
+                if (!passageiro || !origem || !destino || !tipoCorrida) {
+                    alert('Por favor, preencha todos os campos obrigatórios.');
+                    return;
+                }
+
+                if (corridaAgendadaBtn.classList.contains('active') && (!data || !hora)) {
+                    alert('Por favor, selecione a data e a hora para a corrida agendada.');
+                    return;
+                }
+
+                const motoristaNome = urlParams.get('motorista');
+                const telefoneMotorista = urlParams.get('telefone');
+                const mensagem = `Olá ${motoristaNome},\n\nNovo pedido de corrida:\n\nPassageiro: ${passageiro}\nOrigem: ${origem}\nDestino: ${destino}\nTipo de Corrida: ${tipoCorrida}\nData: ${data}\nHora: ${hora}\n\n`;
+                const linkWhatsApp = `https://api.whatsapp.com/send?phone=${telefoneMotorista}&text=${encodeURIComponent(mensagem)}`;
+                window.open(linkWhatsApp, '_blank');
+            });
+
+            // Inicializa o mapa
+            map = L.map('map').setView([-15.7801, -47.9292], 5); // Centro do Brasil
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            }).addTo(map);
         });
     </script>
 </body>
