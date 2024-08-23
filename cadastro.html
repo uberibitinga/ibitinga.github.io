@@ -41,9 +41,21 @@
             border-radius: 4px;
             font-size: 16px;
             cursor: pointer;
+            margin-top: 10px;
         }
         button:hover {
             background-color: #45a049;
+        }
+        #linkContainer {
+            margin-top: 20px;
+        }
+        #linkContainer input {
+            width: calc(100% - 22px);
+            display: inline-block;
+        }
+        #linkContainer button {
+            width: auto;
+            display: inline-block;
         }
     </style>
 </head>
@@ -58,7 +70,7 @@
         
         <button type="submit">Gerar Link de Cadastro</button>
         
-        <div id="linkContainer" style="margin-top: 20px;"></div>
+        <div id="linkContainer"></div>
     </form>
     <script>
         document.getElementById('formCadastro').addEventListener('submit', (event) => {
@@ -73,9 +85,10 @@
             }
             
             const motoristaLink = `pedido.html?motorista=${encodeURIComponent(nome)}&telefone=${encodeURIComponent(telefone)}`;
+            const fullLink = `${window.location.origin}/${motoristaLink}`;
             document.getElementById('linkContainer').innerHTML = `
                 <p>Seu link personalizado:</p>
-                <input type="text" value="${window.location.origin}/${motoristaLink}" readonly>
+                <input type="text" value="${fullLink}" readonly>
                 <button onclick="copyLink()">Copiar Link</button>
                 <script>
                     function copyLink() {
