@@ -3,133 +3,100 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cadastro de Motorista</title>
+    <title>Cadastro do Motorista</title>
     <style>
         body {
+            font-family: Arial, sans-serif;
             margin: 0;
             padding: 0;
-            font-family: Arial, sans-serif;
-            background-color: #f0f0f0;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-        }
-        .container {
-            background: white;
-            padding: 20px;
-            border-radius: 10px;
-            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-            max-width: 90%;
-            width: 600px;
             box-sizing: border-box;
         }
-        h1 {
-            font-size: 24px;
-            margin-bottom: 20px;
-            text-align: center;
-        }
-        .form-group {
-            margin-bottom: 15px;
+        form {
+            max-width: 600px;
+            margin: 20px auto;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            background-color: #f9f9f9;
         }
         label {
             display: block;
-            margin-bottom: 5px;
-            font-weight: bold;
+            margin-bottom: 8px;
         }
-        input, select {
-            width: 100%;
-            padding: 10px;
+        input {
+            width: calc(100% - 20px);
+            padding: 8px;
             border: 1px solid #ddd;
-            border-radius: 5px;
-            box-sizing: border-box;
+            border-radius: 4px;
+            margin-bottom: 12px;
         }
-        .button {
+        button {
             display: block;
             width: 100%;
-            padding: 15px;
-            font-size: 18px;
+            padding: 10px;
+            background-color: #4CAF50;
             color: white;
-            background-color: #007bff;
             border: none;
-            border-radius: 5px;
-            text-align: center;
-            text-decoration: none;
-            transition: background-color 0.3s ease;
+            border-radius: 4px;
+            font-size: 16px;
             cursor: pointer;
         }
-        .button:hover {
-            background-color: #0056b3;
+        .link-box {
+            margin-top: 20px;
         }
-        @media (max-width: 600px) {
-            .container {
-                width: 100%;
-                padding: 10px;
-            }
-            h1 {
-                font-size: 20px;
-            }
-            .button {
-                font-size: 16px;
-                padding: 10px;
-            }
+        .hidden {
+            display: none;
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h1>Cadastro de Motorista</h1>
-        <form id="formCadastro">
-            <div class="form-group">
-                <label for="nome">Nome:</label>
-                <input type="text" id="nome" name="nome" required>
-            </div>
-            <div class="form-group">
-                <label for="telefone">Telefone:</label>
-                <input type="tel" id="telefone" name="telefone" required>
-            </div>
-            <div class="form-group">
-                <label for="cidade">Cidade:</label>
-                <input type="text" id="cidade" name="cidade" required>
-            </div>
-            <div class="form-group">
-                <button type="submit" class="button">Gerar Link</button>
-            </div>
-            <div class="form-group" id="linkContainer" style="display:none;">
-                <label for="link">Seu Link Personalizado:</label>
-                <input type="text" id="link" readonly>
-                <button type="button" class="button" id="copyButton">Copiar Link</button>
-            </div>
-        </form>
-    </div>
+    <h1>Cadastro do Motorista</h1>
+    <form id="formCadastro">
+        <label for="nome">Nome:</label>
+        <input type="text" id="nome" required>
+
+        <label for="telefone">Telefone:</label>
+        <input type="tel" id="telefone" required>
+
+        <label for="cidade">Cidade:</label>
+        <input type="text" id="cidade" required>
+
+        <button type="button" id="gerarLink">Gerar Link</button>
+        <div id="linkBox" class="link-box hidden">
+            <label for="link">Seu Link Personalizado:</label>
+            <input type="text" id="link" readonly>
+            <button type="button" id="copiarLink">Copiar Meu Link</button>
+        </div>
+    </form>
 
     <script>
         document.addEventListener('DOMContentLoaded', () => {
-            const formCadastro = document.getElementById('formCadastro');
-            const nomeInput = document.getElementById('nome');
-            const telefoneInput = document.getElementById('telefone');
-            const cidadeInput = document.getElementById('cidade');
+            const gerarLinkBtn = document.getElementById('gerarLink');
+            const linkBox = document.getElementById('linkBox');
             const linkInput = document.getElementById('link');
-            const linkContainer = document.getElementById('linkContainer');
-            const copyButton = document.getElementById('copyButton');
+            const copiarLinkBtn = document.getElementById('copiarLink');
 
-            formCadastro.addEventListener('submit', (e) => {
-                e.preventDefault();
+            gerarLinkBtn.addEventListener('click', () => {
+                const nome = document.getElementById('nome').value.trim();
+                const telefone = document.getElementById('telefone').value.trim();
+                const cidade = document.getElementById('cidade').value.trim();
 
-                const nome = nomeInput.value;
-                const telefone = telefoneInput.value;
-                const cidade = cidadeInput.value;
-
-                if (nome && telefone && cidade) {
-                    const link = `${window.location.origin}/site/2/pedidos.html?motorista=${encodeURIComponent(nome)}&telefone=${encodeURIComponent(telefone)}&cidade=${encodeURIComponent(cidade)}`;
-                    linkInput.value = link;
-                    linkContainer.style.display = 'block';
-                } else {
-                    alert('Por favor, preencha todos os campos.');
+                if (!nome || !telefone || !cidade) {
+                    alert('Por favor, preencha todos os campos obrigatórios.');
+                    return;
                 }
+
+                const link = `${window.location.origin}/pedido.html?motorista=${encodeURIComponent(nome)}&telefone=${encodeURIComponent(telefone)}&cidade=${encodeURIComponent(cidade)}`;
+                linkInput.value = link;
+                linkBox.classList.remove('hidden');
             });
 
-            copyButton.addEventListener('click', () => {
+            copiarLinkBtn.addEventListener('click', () => {
                 linkInput.select();
                 document.execCommand('copy');
-                alert('Link copiado 
+                alert('Link copiado para a área de transferência!');
+            });
+        });
+    </script>
+</body>
+</html>
