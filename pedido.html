@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pedido de Corrida</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f4;
+        }
+        form {
+            max-width: 800px;
+            margin: 20px auto;
+            padding: 20px;
+            border-radius: 8px;
+            background-color: #fff;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+        }
+        input, select {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 12px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        .tipo-corrida {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 12px;
+        }
+        .tipo-corrida button {
+            flex: 1;
+            padding: 10px;
+            border: none;
+            border-radius: 4px;
+            background-color: #007bff;
+            color: white;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+            font-size: 16px;
+        }
+        .tipo-corrida button.active {
+            background-color: #28a745;
+        }
+        .tipo-corrida button:hover {
+            background-color: #0056b3;
+        }
+        .tipo-corrida button.active:hover {
+            background-color: #218838;
+        }
+        #dataHoraFields {
+            margin-bottom: 12px;
+        }
+        #infoDataHora {
+            margin-bottom: 12px;
+            font-weight: bold;
+        }
+        #map {
+            height: 400px;
+            width: 100%;
+            margin: 20px 0;
+        }
+        .submit-button {
+            width: 100%;
+            padding: 10px;
+            border: none;
+            border-radius: 4px;
+            background-color: #007bff;
+            color: white;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+        .submit-button:hover {
+            background-color: #0056b3;
+        }
+        .hidden {
+            display: none;
+        }
+        .title {
+            font-size: 24px;
+            margin-bottom: 10px;
+        }
+        .subtitle {
+            font-size: 18px;
+            color: #666;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h1 class="title">Formulário de Pedido de Corrida</h1>
+    <div id="motoristaInfo" class="subtitle"></div>
+    <form id="formPedido">
+        <label for="passageiro">Nome do Passageiro:</label>
+        <input type="text" id="passageiro" required>
+
+        <label for="enderecoOrigem">Endereço de Origem:</label>
+        <input type="text" id="enderecoOrigem" placeholder="Rua, Número, Bairro, Cidade" required>
+
+        <label for="enderecoDestino">Endereço de Destino:</label>
+        <input type="text" id="enderecoDestino" placeholder="Rua, Número, Bairro, Cidade" required>
+
+        <div class="tipo-corrida">
+            <button type="button" id="corridaAgora">Corrida Agora</button>
+            <button type="button" id="corridaAgendada">Corrida Agendada</button>
+        </div>
+
+        <div id="dataHoraFields" class="hidden">
+            <label for="data">Data:</label>
+            <input type="date" id="data">
+            <label for="hora">Hora:</label>
+            <input type="time" id="hora">
+        </div>
+
+        <div id="infoDataHora" class="hidden"></div>
+
+        <button type="submit" class="submit-button">Enviar Solicitação</button>
+    </form>
+
+    <div id="map"></div>
+
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.js"></script>
+    <script src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const formPedido = document.getElementById('formPedido');
+            const motoristaInfo = document.getElementById('motoristaInfo');
+            const enderecoOrigemInput = document.getElementById('enderecoOrigem');
+            const enderecoDestinoInput = document.getElementById('enderecoDestino');
+            const corridaAgoraBtn = document.getElementById('corridaAgora');
+            const corridaAgendadaBtn = document.getElementById('corridaAgendada');
+            const dataHoraFields = document.getElementById('dataHoraFields');
+            const infoDataHora = document.getElementById('infoDataHora');
+            const mapContainer = document.getElementById('map');
+
+            let tipoCorridaSelecionado = '';
+            let map, geocoder, routingControl;
+            let markerOrigem, markerDestino;
+
+            // Get URL parameters
+            const queryParams = new URLSearchParams(window.location.search);
+            const nomeMotorista = queryParams.get('motorista');
+            const telefoneMotorista = queryParams.get('telefone');
+            const cidadeMotorista = queryParams.get('cidade') || '';
+
+            if (nomeMotorista) {
+                motoristaInfo.textContent = `Pedindo Corrida Para ${nomeMotorista}`;
+            }
+
+            function initMap() {
+                map = L.map(mapContainer).setView([-15.7801, -47.9292], 10); // Default to Brasilia
+
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                }).addTo(map);
+
+                geocoder = L.Control.Geocoder.nominatim();
+            }
+
+            function updateMap() {
+                const enderecoOrigem = enderecoOrigemInput.value;
+                const enderecoDestino = enderecoDestinoInput.value;
+
+                if (enderecoOrigem) {
+                    geocoder.geocode(enderecoOrigem, (results) => {
+                        if (results.length > 0) {
+                            const { lat, lng } = results[0].center;
+                            if (markerOrigem) {
+                                map.removeLayer(markerOrigem);
+                            }
+                            map.setView([lat, lng], 14);
+                            markerOrigem = L.marker([lat, lng]).addTo(map).bindPopup('Origem').openPopup();
+                        }
+                    });
+                }
+
+                if (enderecoDestino) {
+                    geocoder.geocode(enderecoDestino, (results) => {
+                        if (results.length > 0) {
+                            const { lat, lng } = results[0].center;
+                            if (markerDestino) {
+                                map.removeLayer(markerDestino);
+                            }
+                            map.setView([lat, lng], 14);
+                            markerDestino = L.marker([lat, lng]).addTo(map).bindPopup('Destino').openPopup();
+
+                            if (enderecoOrigem) {
+                                if (routingControl) {
+                                    map.removeControl(routingControl);
+                                }
+                                routingControl = L.Routing.control({
+                                    waypoints: [
+                                        L.latLng(markerOrigem.getLatLng().lat, markerOrigem.getLatLng().lng),
+                                        L.latLng(lat, lng)
+                                    ],
+                                    createMarker: () => null
+                                }).addTo(map);
+                            }
+                        }
+                    });
+                }
+            }
+
+            function handleCorridaAgora() {
+                tipoCorridaSelecionado = 'Agora';
+                corridaAgoraBtn.classList.add('active');
+                corridaAgendadaBtn.classList.remove('active');
+                dataHoraFields.classList.add('hidden');
+                infoDataHora.classList.remove('hidden');
+                infoDataHora.textContent = `Pedindo Corrida Para Agora ${new Date().toLocaleDateString()} - ${new Date().toLocaleTimeString().substring(0, 5)}`;
+            }
+
+            function handleCorridaAgendada() {
+                tipoCorridaSelecionado = 'Agendada';
+                corridaAgendadaBtn.classList.add('active');
+                corridaAgoraBtn.classList.remove('active');
+                dataHoraFields.classList.remove('hidden');
+                infoDataHora.classList.add('hidden');
+            }
+
+            corridaAgoraBtn.addEventListener('click', handleCorridaAgora);
+            corridaAgendadaBtn.addEventListener('click', handleCorridaAgendada);
+
+            enderecoOrigemInput.addEventListener('input', updateMap);
+            enderecoDestinoInput.addEventListener('input', updateMap);
+
+            formPedido.addEventListener('submit', (e) => {
+                e.preventDefault();
+                const passageiro = document.getElementById('passageiro').value;
+                const enderecoOrigem = enderecoOrigemInput.value;
+                const enderecoDestino = enderecoDestinoInput.value;
+                const tipoCorrida = tipoCorridaSelecionado;
+                const data = document.getElementById('data').value;
+                const hora = document.getElementById('hora').value;
+
+                if (enderecoOrigem && enderecoDestino && (tipoCorrida === 'Agora' || (data && hora))) {
+                    const mensagem = `Nome do Passageiro: ${passageiro}\n` +
+                        `Endereço de Origem: ${enderecoOrigem}\n` +
+                        `Endereço de Destino: ${enderecoDestino}\n` +
+                        `Tipo de Corrida: ${tipoCorrida}\n` +
+                        (tipoCorrida === 'Agendada' ? `Data: ${data}\nHora: ${hora}` : '');
+
+                    const whatsappUrl = `https://wa.me/${encodeURIComponent(telefoneMotorista)}?text=${encodeURIComponent(mensagem)}`;
+
+                    // Redirect to WhatsApp with the message
+                    window.location.href = whatsappUrl;
+                } else {
+                    alert('Por favor, preencha todos os campos obrigatórios.');
+                }
+            });
+
+            initMap();
+        });
+    </script>
+</body>
+</html>
