@@ -162,17 +162,19 @@
                     fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(origem)}, ${cidadeMotorista || ''}`)
                         .then(response => response.json())
                         .then(data => {
-                            origemLatLng = [data[0].lat, data[0].lon];
-                            if (map) {
-                                map.eachLayer(layer => {
-                                    if (layer instanceof L.Marker && layer.getPopup().getContent() === 'Origem') {
-                                        map.removeLayer(layer);
-                                    }
-                                });
-                                L.marker(origemLatLng).addTo(map).bindPopup('Origem').openPopup();
-                            }
-                            if (destinoLatLng) {
-                                traceRoute();
+                            if (data.length > 0) {
+                                origemLatLng = [data[0].lat, data[0].lon];
+                                if (map) {
+                                    map.eachLayer(layer => {
+                                        if (layer instanceof L.Marker && layer.getPopup().getContent() === 'Origem') {
+                                            map.removeLayer(layer);
+                                        }
+                                    });
+                                    L.marker(origemLatLng).addTo(map).bindPopup('Origem').openPopup();
+                                }
+                                if (destinoLatLng) {
+                                    traceRoute();
+                                }
                             }
                         });
                 }
@@ -181,17 +183,19 @@
                     fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(destino)}, ${cidadeMotorista || ''}`)
                         .then(response => response.json())
                         .then(data => {
-                            destinoLatLng = [data[0].lat, data[0].lon];
-                            if (map) {
-                                map.eachLayer(layer => {
-                                    if (layer instanceof L.Marker && layer.getPopup().getContent() === 'Destino') {
-                                        map.removeLayer(layer);
-                                    }
-                                });
-                                L.marker(destinoLatLng).addTo(map).bindPopup('Destino').openPopup();
-                            }
-                            if (origemLatLng) {
-                                traceRoute();
+                            if (data.length > 0) {
+                                destinoLatLng = [data[0].lat, data[0].lon];
+                                if (map) {
+                                    map.eachLayer(layer => {
+                                        if (layer instanceof L.Marker && layer.getPopup().getContent() === 'Destino') {
+                                            map.removeLayer(layer);
+                                        }
+                                    });
+                                    L.marker(destinoLatLng).addTo(map).bindPopup('Destino').openPopup();
+                                }
+                                if (origemLatLng) {
+                                    traceRoute();
+                                }
                             }
                         });
                 }
