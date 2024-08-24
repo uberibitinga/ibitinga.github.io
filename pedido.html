@@ -117,9 +117,9 @@
 
         <div id="dataHoraFields" class="hidden">
             <label for="data">Data:</label>
-            <input type="date" id="data" required>
+            <input type="date" id="data">
             <label for="hora">Hora:</label>
-            <input type="time" id="hora" required>
+            <input type="time" id="hora">
         </div>
 
         <div id="infoDataHora" class="hidden"></div>
@@ -150,8 +150,8 @@
             let map, routingControl;
             let origemLatLng = null;
             let destinoLatLng = null;
+            let tipoCorridaSelecionado = null;
 
-            // Display motorista information
             motoristaInfo.textContent = `Motorista: ${motoristaNome}`;
 
             const updateMap = () => {
@@ -236,6 +236,7 @@
                 corridaAgendadaBtn.classList.remove('active');
                 dataHoraFields.classList.add('hidden');
                 infoDataHora.classList.remove('hidden');
+                tipoCorridaSelecionado = 'Agora';
                 updateDataHoraDisplay();
             };
 
@@ -244,6 +245,7 @@
                 corridaAgendadaBtn.classList.add('active');
                 dataHoraFields.classList.remove('hidden');
                 infoDataHora.classList.add('hidden');
+                tipoCorridaSelecionado = 'Agendada';
             };
 
             corridaAgoraBtn.addEventListener('click', handleCorridaAgora);
@@ -257,11 +259,11 @@
                 const passageiro = document.getElementById('passageiro').value;
                 const enderecoOrigem = enderecoOrigemInput.value;
                 const enderecoDestino = enderecoDestinoInput.value;
-                const tipoCorrida = corridaAgoraBtn.classList.contains('active') ? 'Agora' : 'Agendada';
+                const tipoCorrida = tipoCorridaSelecionado;
                 const data = document.getElementById('data').value;
                 const hora = document.getElementById('hora').value;
 
-                if (enderecoOrigem && enderecoDestino && (corridaAgoraBtn.classList.contains('active') || (data && hora))) {
+                if (enderecoOrigem && enderecoDestino && (tipoCorrida === 'Agora' || (data && hora))) {
                     const mensagem = `Nome do Passageiro: ${passageiro}\n` +
                         `Endereço de Origem: ${enderecoOrigem}\n` +
                         `Endereço de Destino: ${enderecoDestino}\n` +
